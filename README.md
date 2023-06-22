@@ -5,12 +5,15 @@ Shifting attention in the prompt over the duration of a video
 
 Upload video.
 
-Put image with same size in img2img
+Make sure to put an image with same size in the regular image-box. Without this you'll get an error.
 
 Generate.
+
+Result should show up in img2img folder under video_shift.
 
 # TODO
 
 * Copy audio
-* See if there is a way to not require junk image
+* See if there is a way to not require junk image 
+* Use imageio instead of cv2
 
