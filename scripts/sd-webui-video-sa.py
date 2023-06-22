@@ -14,7 +14,6 @@ import os
 from PIL import Image
 import random
 import re
-import types
 import modules.scripts as scripts
 from modules.processing import Processed, process_images, fix_seed
 from modules.shared import opts, cmd_opts, state
@@ -219,7 +218,7 @@ class Script(scripts.Script):
                 p.prompt = shift_attention(prompt, distance)
                 p.negative_prompt = shift_attention(negprompt, distance)
                 p.subseed_strength = distance
-                if isinstance(new_cfg_scale, types.FloatType):
+                if new_cfg_scale:
                     p.cfg_scale = cfg_scale * (1.-distance) + new_cfg_scale * distance
 
                 proc = process_images(p)
