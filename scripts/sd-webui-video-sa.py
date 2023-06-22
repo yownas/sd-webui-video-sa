@@ -28,7 +28,7 @@ class Script(scripts.Script):
         return is_img2img
 
     def ui(self, is_img2img):
-        print("DEBUG: SAFV STARTED")
+        #FIXME add text about junk-image
         input_video = gr.File(label="Upload video", visible=True, file_types=['.mp4'], file_count = "single")
         #FIXME: add show_images
 
@@ -87,6 +87,7 @@ class Script(scripts.Script):
         os.makedirs(shift_path, exist_ok=True)
         shift_number = Script.get_next_sequence_number(shift_path)
         shift_path = os.path.join(shift_path, f"{shift_number:05}")
+        os.makedirs(shift_path, exist_ok=True)
         p.outpath_samples = shift_path
 
         # Force Batch Count and Batch Size to 1.
@@ -160,20 +161,26 @@ class Script(scripts.Script):
                 subseed = negsubseed
             prompts += [(prompt, negprompt, subseed, new_cfg_scale)]
 
-        print(f"DEBUG: Here! {input_video.name}")
-
         input_images = [] 
         video_read = cv2.VideoCapture(input_video.name)
+        video_fps = video_read.get(cv2.CAP_PROP_FPS)
 
-        ret,frame = video_read.read()
-        if ret:
-            input_images.append(frame)
+        while(True):
+            ret,frame = video_read.read()
+            if ret:
+                input_images.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+            else:
+                break
 
         # Set generation helpers
         total_images = len(input_images)
 
+        print(f"DEBUG: Here! {input_video.name} {total_images}")
+
         #total_images = int(steps) * len(prompts)
         steps = int(total_images / len(prompts))
+
+        print(f"DEBUG2: steps = {steps}")
         state.job_count = total_images
         print(f"Generating {total_images} images.")
 
@@ -212,7 +219,7 @@ class Script(scripts.Script):
                 if state.interrupted:
                     break
 
-                p.init_images = [input_images[step]]
+                p.init_images = [input_images[min(step, len(input_images)-1)]]
                 step += 1
     
                 distance = float(i / int(steps))
@@ -223,13 +230,14 @@ class Script(scripts.Script):
                     p.cfg_scale = cfg_scale * (1.-distance) + new_cfg_scale * distance
 
                 proc = process_images(p)
-                imgcnt += 1
+
                 if initial_info is None:
                     initial_info = proc.info
     
                 image = [proc.images[0]]
     
                 prompt_images += image
+                imgcnt += 1 #FIXME needed?
                 dists += [distance]
                 gen_data += [(imgcnt, p.prompt, p.negative_prompt, p.seed, p.subseed, p.subseed_strength, p.cfg_scale)]
 
@@ -244,9 +252,9 @@ class Script(scripts.Script):
 
         # Save video
         try:
-            frames = [np.asarray(images[0])] * lead_inout + [np.asarray(t) for t in images] + [np.asarray(images[-1])] * lead_inout
+            frames = [np.asarray(t) for t in images]
             fps = video_fps if video_fps > 0 else len(frames) / abs(video_fps)
-            filename = f"shift-{shift_number:05}.mp4"
+            filename = f"videoshift-{shift_number:05}.mp4"
             writer = imageio.get_writer(os.path.join(shift_path, filename), fps=fps)
             for frame in frames:
                 writer.append_data(frame)
