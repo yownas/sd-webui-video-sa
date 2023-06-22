@@ -9,24 +9,16 @@
 import gradio as gr
 import imageio
 import math
-import matplotlib
-matplotlib.use('Agg')
-from matplotlib import pyplot as plt
 import numpy as np
 import os
 from PIL import Image
 import random
 import re
-import sys
-import torch
-from torchmetrics import StructuralSimilarityIndexMeasure 
-from torchvision import transforms
-from torch.nn import functional as F
 import modules.scripts as scripts
 from modules.processing import Processed, process_images, fix_seed
-from modules.shared import opts, cmd_opts, state, sd_upscalers
-from modules.images import resize_image
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from modules.shared import opts, cmd_opts, state
+
+import cv2
 
 class Script(scripts.Script):
     def title(self):
@@ -36,9 +28,11 @@ class Script(scripts.Script):
         return is_img2img
 
     def ui(self, is_img2img):
+        print("DEBUG: SAFV STARTED")
         input_video = gr.File(label="Upload video", visible=True, file_types=['.mp4'], file_count = "single")
+        #FIXME: add show_images
 
-        return [steps, input_video]
+        return [input_video]
 
     def get_next_sequence_number(path):
         from pathlib import Path
@@ -57,7 +51,13 @@ class Script(scripts.Script):
                 pass
         return result + 1
 
-    def run(self, p, input_video]:
+    def run(self, p, input_video):
+
+
+        #FIXME
+        show_images = False
+
+
         re_attention_span = re.compile(r"([\-.\d]+~[\-~.\d]+)", re.X)
 
         def shift_attention(text, distance):
@@ -88,7 +88,6 @@ class Script(scripts.Script):
         shift_number = Script.get_next_sequence_number(shift_path)
         shift_path = os.path.join(shift_path, f"{shift_number:05}")
         p.outpath_samples = shift_path
-        if save_video: os.makedirs(shift_path, exist_ok=True)
 
         # Force Batch Count and Batch Size to 1.
         p.n_iter = 1
@@ -161,8 +160,20 @@ class Script(scripts.Script):
                 subseed = negsubseed
             prompts += [(prompt, negprompt, subseed, new_cfg_scale)]
 
+        print(f"DEBUG: Here! {input_video.name}")
+
+        input_images = [] 
+        video_read = cv2.VideoCapture(input_video.name)
+
+        ret,frame = video_read.read()
+        if ret:
+            input_images.append(frame)
+
         # Set generation helpers
-        total_images = int(steps) * len(prompts)
+        total_images = len(input_images)
+
+        #total_images = int(steps) * len(prompts)
+        steps = int(total_images / len(prompts))
         state.job_count = total_images
         print(f"Generating {total_images} images.")
 
@@ -172,6 +183,7 @@ class Script(scripts.Script):
         seed = p.seed
         subseed = p.subseed
         cfg_scale = p.cfg_scale
+        step = 0
         for new_prompt, new_negprompt, new_subseed, new_cfg_scale in prompts:
             if new_prompt: 
                 prompt = new_prompt
@@ -199,6 +211,9 @@ class Script(scripts.Script):
             for i in range(int(steps) + 1):
                 if state.interrupted:
                     break
+
+                p.init_images = [input_images[step]]
+                step += 1
     
                 distance = float(i / int(steps))
                 p.prompt = shift_attention(prompt, distance)
