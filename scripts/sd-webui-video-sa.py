@@ -14,6 +14,7 @@ import os
 from PIL import Image
 import random
 import re
+import types
 import modules.scripts as scripts
 from modules.processing import Processed, process_images, fix_seed
 from modules.shared import opts, cmd_opts, state
@@ -75,8 +76,6 @@ class Script(scripts.Script):
         initial_info = None
         images = []
         dists = []
-        gen_data = []
-        imgcnt=-1
 
         if not input_video:
             print(f"Nothing to do. Please upload a video.")
@@ -174,13 +173,7 @@ class Script(scripts.Script):
 
         # Set generation helpers
         total_images = len(input_images)
-
-        print(f"DEBUG: Here! {input_video.name} {total_images}")
-
-        #total_images = int(steps) * len(prompts)
         steps = int(total_images / len(prompts))
-
-        print(f"DEBUG2: steps = {steps}")
         state.job_count = total_images
         print(f"Generating {total_images} images.")
 
@@ -226,7 +219,7 @@ class Script(scripts.Script):
                 p.prompt = shift_attention(prompt, distance)
                 p.negative_prompt = shift_attention(negprompt, distance)
                 p.subseed_strength = distance
-                if not new_cfg_scale is None:
+                if isinstance(new_cfg_scale, types.FloatType):
                     p.cfg_scale = cfg_scale * (1.-distance) + new_cfg_scale * distance
 
                 proc = process_images(p)
@@ -237,9 +230,7 @@ class Script(scripts.Script):
                 image = [proc.images[0]]
     
                 prompt_images += image
-                imgcnt += 1 #FIXME needed?
                 dists += [distance]
-                gen_data += [(imgcnt, p.prompt, p.negative_prompt, p.seed, p.subseed, p.subseed_strength, p.cfg_scale)]
 
             # We should have reached the subseed if we were seed traveling
             seed = subseed
