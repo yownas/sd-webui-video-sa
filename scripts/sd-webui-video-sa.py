@@ -18,8 +18,6 @@ import modules.scripts as scripts
 from modules.processing import Processed, process_images, fix_seed
 from modules.shared import opts, cmd_opts, state
 
-import cv2
-
 class Script(scripts.Script):
     def title(self):
         return "Video shift attention"
@@ -160,15 +158,10 @@ class Script(scripts.Script):
             prompts += [(prompt, negprompt, subseed, new_cfg_scale)]
 
         input_images = [] 
-        video_read = cv2.VideoCapture(input_video.name)
-        video_fps = video_read.get(cv2.CAP_PROP_FPS)
-
-        while(True):
-            ret,frame = video_read.read()
-            if ret:
-                input_images.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-            else:
-                break
+        vid = imageio.get_reader(input_video.name,  'ffmpeg')
+        video_fps = vid.get_meta_data()["fps"]
+        for num , im in enumerate(vid):
+            input_images.append(Image.fromarray(vid.get_data(num)))
 
         # Set generation helpers
         total_images = len(input_images)
